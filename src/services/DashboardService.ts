@@ -5,6 +5,7 @@ export interface DashboardMetrics {
   totalLeads: number;
   activeOrders: number;
   conversionRate: number;
+  chartData: Array<{ time: string; value: number }>;
 }
 
 export interface LTVMetrics {
@@ -46,17 +47,73 @@ export const DashboardService = {
     let totalRevenue = 0;
     let activeOrders = 0;
     let finishedOrders = 0;
+    
+    const chartDataRaw = new Map<string, { time: string, value: number, sortKey: string }>();
 
     if (pedidosData) {
       pedidosData.forEach(p => {
         if (p.status === 'finalizado') {
-          totalRevenue += Number(p.valor_total || 0);
+          const val = Number(p.valor_total || 0);
+          totalRevenue += val;
           finishedOrders++;
+          
+          if (p.created_at) {
+            const dateObj = new Date(p.created_at);
+            let bucketKey = '';
+            let sortKey = '';
+
+            if (filter === 'Hoje' || filter === 'Ontem') {
+              const hr = dateObj.getHours().toString().padStart(2, '0');
+              bucketKey = `${hr}:00`;
+              sortKey = bucketKey;
+            } else {
+              const d = dateObj.getDate().toString().padStart(2, '0');
+              const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+              bucketKey = `${d}/${m}`;
+              const y = dateObj.getFullYear();
+              sortKey = `${y}-${m}-${d}`;
+            }
+
+            const existing = chartDataRaw.get(bucketKey) || { time: bucketKey, value: 0, sortKey };
+            existing.value += val;
+            chartDataRaw.set(bucketKey, existing);
+          }
         } else if (p.status !== 'cancelado') {
           activeOrders++;
         }
       });
     }
+
+    // Prepopulate some buckets for empty states so the chart always looks good
+    if (filter === 'Hoje') {
+      const currentHour = new Date().getHours();
+      for (let i = 8; i <= Math.max(currentHour, 18); i += 2) {
+        const hr = i.toString().padStart(2, '0');
+        const key = `${hr}:00`;
+        if (!chartDataRaw.has(key)) chartDataRaw.set(key, { time: key, value: 0, sortKey: key });
+      }
+    } else if (filter === 'Ontem') {
+      for (let i = 8; i <= 20; i += 2) {
+        const hr = i.toString().padStart(2, '0');
+        const key = `${hr}:00`;
+        if (!chartDataRaw.has(key)) chartDataRaw.set(key, { time: key, value: 0, sortKey: key });
+      }
+    } else if (filter === '7 dias') {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const day = d.getDate().toString().padStart(2, '0');
+        const m = (d.getMonth() + 1).toString().padStart(2, '0');
+        const key = `${day}/${m}`;
+        const y = d.getFullYear();
+        const sortKey = `${y}-${m}-${day}`;
+        if (!chartDataRaw.has(key)) chartDataRaw.set(key, { time: key, value: 0, sortKey });
+      }
+    }
+
+    const chartData = Array.from(chartDataRaw.values())
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(item => ({ time: item.time, value: item.value }));
 
     const conversionRate = totalLeads ? (finishedOrders / totalLeads) * 100 : 0;
 
@@ -64,7 +121,8 @@ export const DashboardService = {
       totalRevenue,
       totalLeads: totalLeads || 0,
       activeOrders,
-      conversionRate
+      conversionRate,
+      chartData
     };
   },
 
