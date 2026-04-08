@@ -1,104 +1,104 @@
-import { mockPedidos } from '../data/mock';
-import { addDays, differenceInDays } from 'date-fns';
-import { MessageCircle, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DollarSign, Users, ShoppingBag, TrendingUp, RefreshCw, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { DashboardService, LTVMetrics } from '../services/DashboardService';
 
 export function LTV() {
-  // Simula o cálculo de recompra
-  const repurchases = mockPedidos.flatMap(pedido => 
-    pedido.itens.map(item => {
-      const dataPedido = new Date(pedido.created_at);
-      const dataRecompra = addDays(dataPedido, item.prazo_recompra_dias);
-      const diasRestantes = differenceInDays(dataRecompra, new Date());
-      
-      let status: 'ok' | 'warning' | 'danger' = 'ok';
-      if (diasRestantes <= 0) status = 'danger';
-      else if (diasRestantes <= 3) status = 'warning';
+  const [metrics, setMetrics] = useState<LTVMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-      return {
-        id: item.id,
-        cliente: pedido.nome_cliente,
-        telefone: pedido.lead_id,
-        produto: item.produto,
-        diasRestantes,
-        status
-      };
-    })
-  ).sort((a, b) => a.diasRestantes - b.diasRestantes);
+  useEffect(() => {
+    async function loadMetrics() {
+      try {
+        const data = await DashboardService.getLTVMetrics();
+        setMetrics(data);
+      } catch (error) {
+        console.error('Falha ao carregar LTV', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadMetrics();
+  }, []);
+
+  const kpis = [
+    { 
+      title: 'Faturamento Recompra', 
+      value: metrics ? `R$ ${metrics.repeatRevenue.toFixed(2)}` : 'R$ 0,00', 
+      icon: DollarSign, 
+      trend: '+24%', 
+      isPositive: true,
+      description: 'Receita gerada a partir da 2ª compra'
+    },
+    { 
+      title: 'Clientes Retidos', 
+      value: metrics?.repeatCustomers.toString() || '0', 
+      icon: RefreshCw, 
+      trend: '+12%', 
+      isPositive: true,
+      description: 'Clientes que compraram mais de uma vez'
+    },
+    { 
+      title: 'Automações Disparadas', 
+      value: metrics?.automatedRemindersSent.toString() || '0', 
+      icon: Zap, 
+      trend: 'Automatizado', 
+      isPositive: true,
+      description: 'Lembretes enviados pelo n8n'
+    },
+  ];
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Inteligência de LTV</h1>
-        <p className="text-gray-400 mt-1">Previsão de recompra baseada no consumo de suplementos.</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard de Retenção (LTV)</h1>
+        <p className="text-gray-400 mt-1">Acompanhamento dos resultados da estratégia de recompra automatizada.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="glass p-6 rounded-xl border-l-4 border-l-red-500">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="text-red-500 w-5 h-5" />
-            <h3 className="text-white font-medium">Atrasados</h3>
-          </div>
-          <p className="text-3xl font-bold text-white">{repurchases.filter(r => r.status === 'danger').length}</p>
+      {isLoading ? (
+        <div className="flex animate-pulse space-x-4">
+          <div className="h-32 bg-surface/50 rounded-xl w-full"></div>
+          <div className="h-32 bg-surface/50 rounded-xl w-full"></div>
+          <div className="h-32 bg-surface/50 rounded-xl w-full"></div>
         </div>
-        <div className="glass p-6 rounded-xl border-l-4 border-l-orange-500">
-          <div className="flex items-center gap-3 mb-2">
-            <Clock className="text-orange-500 w-5 h-5" />
-            <h3 className="text-white font-medium">Próximos (3 dias)</h3>
-          </div>
-          <p className="text-3xl font-bold text-white">{repurchases.filter(r => r.status === 'warning').length}</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {kpis.map((kpi, i) => (
+            <div key={i} className="glass rounded-xl p-6 glow-hover border border-white/5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <kpi.icon className="w-5 h-5 text-accent" />
+                </div>
+                <span className={cn(
+                  "text-sm font-medium px-2 py-1 rounded-full bg-accent/10 text-accent"
+                )}>
+                  {kpi.trend}
+                </span>
+              </div>
+              <h3 className="text-gray-400 text-sm font-medium">{kpi.title}</h3>
+              <p className="text-3xl font-bold text-white mt-1">{kpi.value}</p>
+              <p className="text-xs text-gray-500 mt-2">{kpi.description}</p>
+            </div>
+          ))}
         </div>
-        <div className="glass p-6 rounded-xl border-l-4 border-l-green-500">
-          <div className="flex items-center gap-3 mb-2">
-            <CheckCircle2 className="text-green-500 w-5 h-5" />
-            <h3 className="text-white font-medium">No Prazo</h3>
-          </div>
-          <p className="text-3xl font-bold text-white">{repurchases.filter(r => r.status === 'ok').length}</p>
-        </div>
-      </div>
+      )}
 
-      <div className="glass rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-surface/50 border-b border-white/5">
-            <tr>
-              <th className="p-4 text-sm font-medium text-gray-400">Cliente</th>
-              <th className="p-4 text-sm font-medium text-gray-400">Produto</th>
-              <th className="p-4 text-sm font-medium text-gray-400">Status</th>
-              <th className="p-4 text-sm font-medium text-gray-400">Ação</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {repurchases.map((item) => (
-              <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
-                <td className="p-4">
-                  <p className="font-medium text-white">{item.cliente}</p>
-                  <p className="text-sm text-gray-500">{item.telefone}</p>
-                </td>
-                <td className="p-4 text-gray-300">{item.produto}</td>
-                <td className="p-4">
-                  <span className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium",
-                    item.status === 'danger' && "bg-red-500/10 text-red-400",
-                    item.status === 'warning' && "bg-orange-500/10 text-orange-400",
-                    item.status === 'ok' && "bg-green-500/10 text-green-400"
-                  )}>
-                    {item.diasRestantes < 0 
-                      ? `Atrasado ${Math.abs(item.diasRestantes)} dias`
-                      : item.diasRestantes === 0 
-                        ? 'Acaba hoje'
-                        : `Faltam ${item.diasRestantes} dias`}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <button className="flex items-center gap-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                    <MessageCircle className="w-4 h-4" />
-                    Lembrar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="glass rounded-xl p-6 border border-white/5">
+        <h3 className="text-lg font-semibold text-white mb-6">Mecânica Ativa</h3>
+        <div className="bg-surface/30 p-4 rounded-lg flex items-start gap-4">
+          <div className="bg-green-500/20 p-3 rounded-full">
+            <Zap className="w-6 h-6 text-green-400" />
+          </div>
+          <div>
+            <h4 className="text-white font-medium">Automação Silenciosa n8n</h4>
+            <p className="text-gray-400 text-sm mt-1">
+              O sistema calcula automaticamente a fórmula de prazo de recompra dos itens do pedido. 
+              Ao atingir o vencimento, o bot da BIA entra em ação pelo WhatsApp de forma autônoma 
+              para reengajar o cliente.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
