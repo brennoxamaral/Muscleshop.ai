@@ -104,21 +104,47 @@ export function Dashboard() {
             <h3 className="text-lg font-semibold text-white mb-6">Evolução de Faturamento (Hoje)</h3>
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historicalData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={historicalData} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.3}/>
+                      <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.4}/>
                       <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="time" stroke="#666" tick={{fill: '#666'}} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#666" tick={{fill: '#666'}} tickLine={false} axisLine={false} tickFormatter={(value) => `R$ ${value}`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#161616', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                    itemStyle={{ color: '#1EF76A' }}
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#888888" 
+                    tick={{ fill: '#888888', fontSize: 12 }} 
+                    tickMargin={15}
+                    tickLine={false} 
+                    axisLine={false} 
                   />
-                  <Area type="monotone" dataKey="value" stroke="var(--color-accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
+                  <YAxis 
+                    stroke="#888888" 
+                    tick={{ fill: '#888888', fontSize: 12 }} 
+                    tickMargin={15}
+                    width={70}
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(value) => `R$ ${value}`} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#161616', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                    itemStyle={{ color: '#1EF76A' }}
+                    cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="var(--color-accent)" 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill="url(#colorValue)" 
+                    animationDuration={1500}
+                    animationEasing="ease-in-out"
+                    activeDot={{ r: 6, strokeWidth: 0, fill: "var(--color-accent)" }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
