@@ -7,9 +7,12 @@ export interface PedidoComItens extends Pedido {
 
 export const PedidosService = {
   async getPedidos(statusFilter?: string[]): Promise<PedidoComItens[]> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
     let query = supabase
       .from('pedidos')
-      .select('*, itens_pedido(*)');
+      .select('*, itens_pedido(*)')
+      .gte('created_at', twentyFourHoursAgo);
 
     if (statusFilter && statusFilter.length > 0) {
       query = query.in('status', statusFilter);

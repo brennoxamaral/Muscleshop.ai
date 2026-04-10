@@ -84,7 +84,7 @@ export function NovoPedidoModal({ onClose, onSuccess }: NovoPedidoModalProps) {
         try {
           await LeadsService.createLead(leadIdToUse, nomeCliente);
         } catch (err) {
-          console.log('Lead could already exist or error:', err);
+          console.error('Lead could already exist or error:', err);
           // Proceed anyway
         }
       }

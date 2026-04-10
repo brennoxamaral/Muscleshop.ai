@@ -27,10 +27,10 @@ export function Dashboard() {
   }, [filter]);
 
   const kpis = [
-    { title: 'Faturamento', value: `R$ ${metrics?.totalRevenue.toFixed(2) || '0.00'}`, icon: DollarSign, trend: '+12%', isPositive: true },
-    { title: 'Total Leads', value: metrics?.totalLeads.toString() || '0', icon: Users, trend: '+5%', isPositive: true },
-    { title: 'Pedidos em Andamento', value: metrics?.activeOrders.toString() || '0', icon: ShoppingBag, trend: '-2%', isPositive: false },
-    { title: 'Taxa de Conversão', value: `${metrics?.conversionRate.toFixed(1) || '0.0'}%`, icon: TrendingUp, trend: '+8%', isPositive: true },
+    { title: 'Faturamento', value: `R$ ${metrics?.totalRevenue.toFixed(2) || '0.00'}`, icon: DollarSign, trend: metrics?.trends?.revenue || '0%', isPositive: (metrics?.trends?.revenue || '0%').startsWith('+') || (metrics?.trends?.revenue || '0%') === '0%' },
+    { title: 'Total Leads', value: metrics?.totalLeads.toString() || '0', icon: Users, trend: metrics?.trends?.leads || '0%', isPositive: (metrics?.trends?.leads || '0%').startsWith('+') || (metrics?.trends?.leads || '0%') === '0%' },
+    { title: 'Pedidos em Andamento', value: metrics?.activeOrders.toString() || '0', icon: ShoppingBag, trend: metrics?.trends?.orders || '0%', isPositive: (metrics?.trends?.orders || '0%').startsWith('+') || (metrics?.trends?.orders || '0%') === '0%' },
+    { title: 'Taxa de Conversão', value: `${metrics?.conversionRate.toFixed(1) || '0.0'}%`, icon: TrendingUp, trend: metrics?.trends?.conversion || '0%', isPositive: (metrics?.trends?.conversion || '0%').startsWith('+') || (metrics?.trends?.conversion || '0%') === '0%' },
   ];
 
   return (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, MapPin, DollarSign, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PedidosService, PedidoComItens } from '../services/PedidosService';
+import { DetalhesPedidoModal } from '../components/DetalhesPedidoModal';
 import { NovoPedidoModal } from '../components/NovoPedidoModal';
 
 const columns = [
@@ -15,6 +16,7 @@ export function Pedidos() {
   const [pedidos, setPedidos] = useState<PedidoComItens[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPedido, setSelectedPedido] = useState<PedidoComItens | null>(null);
 
   const fetchPedidos = async () => {
     try {
@@ -99,7 +101,8 @@ export function Pedidos() {
                     key={pedido.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, pedido.id)}
-                    className="glass p-4 rounded-lg cursor-grab active:cursor-grabbing hover:border-accent/30 transition-colors"
+                    onClick={() => setSelectedPedido(pedido)}
+                    className="glass p-4 rounded-lg cursor-pointer hover:border-accent/30 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-white">{pedido.nome_cliente || 'Cliente'}</h4>
@@ -142,6 +145,13 @@ export function Pedidos() {
             setIsModalOpen(false);
             fetchPedidos();
           }}
+        />
+      )}
+
+      {selectedPedido && (
+        <DetalhesPedidoModal
+          pedido={selectedPedido}
+          onClose={() => setSelectedPedido(null)}
         />
       )}
     </div>

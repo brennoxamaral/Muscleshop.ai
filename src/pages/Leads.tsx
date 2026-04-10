@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { LeadsService } from '../services/LeadsService';
 import { Lead } from '../types/database';
 import { MessageCircle, Clock } from 'lucide-react';
@@ -29,6 +30,34 @@ export function Leads() {
       }
     }
     loadLeads();
+
+    // Inscrição no Realtime para atualizações da tabela leads
+    const channel = supabase
+      .channel('leads_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setLeads((prev) => [payload.new as Lead, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setLeads((prev) =>
+              prev.map((lead) => (lead.id === payload.new.id ? (payload.new as Lead) : lead))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setLeads((prev) => prev.filter((lead) => lead.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleDragStart = (e: React.DragEvent, leadId: string) => {

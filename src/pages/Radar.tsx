@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, PackageX, Check, Plus } from 'lucide-react';
+import { Bell, PackageX, Check, Plus, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { RadarService } from '../services/RadarService';
@@ -10,6 +10,7 @@ export function Radar() {
   const [demandas, setDemandas] = useState<DemandaReprimida[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadDemandas = async () => {
@@ -49,6 +50,20 @@ export function Radar() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este registro?')) return;
+    
+    setDeletingId(id);
+    try {
+      await RadarService.deleteDemandaReprimida(id);
+      await loadDemandas();
+    } catch (error) {
+      console.error('Error deleting demanda', error);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -82,9 +97,19 @@ export function Radar() {
                 <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-white/5">
                   <PackageX className="w-5 h-5 text-gray-400" />
                 </div>
-                <span className="text-xs text-gray-500">
-                  {formatDistanceToNow(new Date(item.created_at), { locale: ptBR, addSuffix: true })}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">
+                    {formatDistanceToNow(new Date(item.created_at), { locale: ptBR, addSuffix: true })}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                    className="text-red-500 hover:text-red-400 p-1 hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-50"
+                    title="Excluir registro"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               
               <h3 className="text-lg font-semibold text-white mb-1">{item.produto_desejado}</h3>

@@ -50,5 +50,17 @@ export const RadarService = {
     }
 
     return data;
+  },
+
+  async deleteDemandaReprimida(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('demanda_reprimida')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting demanda_reprimida:', error);
+      throw error;
+    }
   }
 };

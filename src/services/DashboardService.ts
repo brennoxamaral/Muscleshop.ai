@@ -6,85 +6,128 @@ export interface DashboardMetrics {
   activeOrders: number;
   conversionRate: number;
   chartData: Array<{ time: string; value: number }>;
+  trends: {
+    revenue: string;
+    leads: string;
+    orders: string;
+    conversion: string;
+  };
 }
 
 export interface LTVMetrics {
   repeatCustomers: number;
   repeatRevenue: number;
-  automatedRemindersSent: number; // Placeholder for future n8n sync
+  automatedRemindersSent: number;
 }
 
 export const DashboardService = {
-  async getMetrics(filter: string = 'Hoje'): Promise<DashboardMetrics> {
-    const { start, end } = this.getDateRange(filter);
+  calculateTrend(current: number, prev: number): string {
+    if (prev === 0) {
+      return current > 0 ? '+100%' : '0%';
+    }
+    const diff = current - prev;
+    const percent = (diff / prev) * 100;
+    const sign = percent > 0 ? '+' : '';
+    // Format to 1 decimal place, or int if whole
+    return `${sign}${percent.toFixed(1).replace('.0', '')}%`;
+  },
 
-    // Faturamento Total (pedidos não cancelados / finalizados) no período
+  async getMetrics(filter: string = 'Hoje'): Promise<DashboardMetrics> {
+    const { current: currentRange, previous: prevRange } = this.getDateRanges(filter);
+
     let pedidosQuery = supabase
       .from('pedidos')
       .select('valor_total, status, created_at')
-      .gte('created_at', start);
+      .gte('created_at', prevRange.start);
     
-    if (end) {
-      pedidosQuery = pedidosQuery.lte('created_at', end);
+    if (currentRange.end) {
+      pedidosQuery = pedidosQuery.lte('created_at', currentRange.end);
     }
 
     const { data: pedidosData } = await pedidosQuery;
     
-    // Total Leads (apenas com Nome) no período
     let leadsQuery = supabase
       .from('leads')
-      .select('*', { count: 'exact', head: true })
+      .select('created_at')
       .not('Nome', 'is', null)
       .neq('Nome', '')
-      .gte('created_at', start);
+      .gte('created_at', prevRange.start);
 
-    if (end) {
-      leadsQuery = leadsQuery.lte('created_at', end);
+    if (currentRange.end) {
+      leadsQuery = leadsQuery.lte('created_at', currentRange.end);
     }
 
-    const { count: totalLeads } = await leadsQuery;
+    const { data: leadsData } = await leadsQuery;
 
     let totalRevenue = 0;
+    let prevRevenue = 0;
+    
     let activeOrders = 0;
+    let prevActiveOrders = 0;
+    
     let finishedOrders = 0;
+    let prevFinishedOrders = 0;
     
     const chartDataRaw = new Map<string, { time: string, value: number, sortKey: string }>();
 
     if (pedidosData) {
       pedidosData.forEach(p => {
+        const isCurrent = p.created_at >= currentRange.start && (!currentRange.end || p.created_at <= currentRange.end);
+        const isPrev = p.created_at >= prevRange.start && p.created_at <= prevRange.end;
+
         if (p.status === 'finalizado') {
           const val = Number(p.valor_total || 0);
-          totalRevenue += val;
-          finishedOrders++;
           
-          if (p.created_at) {
-            const dateObj = new Date(p.created_at);
-            let bucketKey = '';
-            let sortKey = '';
+          if (isCurrent) {
+            totalRevenue += val;
+            finishedOrders++;
+            
+            if (p.created_at) {
+              const dateObj = new Date(p.created_at);
+              let bucketKey = '';
+              let sortKey = '';
 
-            if (filter === 'Hoje' || filter === 'Ontem') {
-              const hr = dateObj.getHours().toString().padStart(2, '0');
-              bucketKey = `${hr}:00`;
-              sortKey = bucketKey;
-            } else {
-              const d = dateObj.getDate().toString().padStart(2, '0');
-              const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-              bucketKey = `${d}/${m}`;
-              const y = dateObj.getFullYear();
-              sortKey = `${y}-${m}-${d}`;
+              if (filter === 'Hoje' || filter === 'Ontem') {
+                const hr = dateObj.getHours().toString().padStart(2, '0');
+                bucketKey = `${hr}:00`;
+                sortKey = bucketKey;
+              } else {
+                const d = dateObj.getDate().toString().padStart(2, '0');
+                const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                bucketKey = `${d}/${m}`;
+                const y = dateObj.getFullYear();
+                sortKey = `${y}-${m}-${d}`;
+              }
+
+              const existing = chartDataRaw.get(bucketKey) || { time: bucketKey, value: 0, sortKey };
+              existing.value += val;
+              chartDataRaw.set(bucketKey, existing);
             }
-
-            const existing = chartDataRaw.get(bucketKey) || { time: bucketKey, value: 0, sortKey };
-            existing.value += val;
-            chartDataRaw.set(bucketKey, existing);
+          }
+          if (isPrev) {
+            prevRevenue += val;
+            prevFinishedOrders++;
           }
         } else if (p.status !== 'cancelado') {
-          activeOrders++;
+          if (isCurrent) activeOrders++;
+          if (isPrev) prevActiveOrders++;
         }
       });
     }
 
-    // Prepopulate some buckets for empty states so the chart always looks good
+    let totalLeads = 0;
+    let prevLeads = 0;
+
+    if (leadsData) {
+      leadsData.forEach(l => {
+        const isCurrent = l.created_at >= currentRange.start && (!currentRange.end || l.created_at <= currentRange.end);
+        const isPrev = l.created_at >= prevRange.start && l.created_at <= prevRange.end;
+
+        if (isCurrent) totalLeads++;
+        if (isPrev) prevLeads++;
+      });
+    }
+
     if (filter === 'Hoje') {
       const currentHour = new Date().getHours();
       for (let i = 8; i <= Math.max(currentHour, 18); i += 2) {
@@ -116,46 +159,81 @@ export const DashboardService = {
       .map(item => ({ time: item.time, value: item.value }));
 
     const conversionRate = totalLeads ? (finishedOrders / totalLeads) * 100 : 0;
+    const prevConversionRate = prevLeads ? (prevFinishedOrders / prevLeads) * 100 : 0;
 
     return {
       totalRevenue,
-      totalLeads: totalLeads || 0,
+      totalLeads,
       activeOrders,
       conversionRate,
-      chartData
+      chartData,
+      trends: {
+        revenue: this.calculateTrend(totalRevenue, prevRevenue),
+        leads: this.calculateTrend(totalLeads, prevLeads),
+        orders: this.calculateTrend(activeOrders, prevActiveOrders),
+        conversion: this.calculateTrend(conversionRate, prevConversionRate)
+      }
     };
   },
 
-  getDateRange(filter: string): { start: string; end?: string } {
+  getDateRanges(filter: string): { current: { start: string; end?: string }; previous: { start: string; end: string } } {
     const now = new Date();
-    const start = new Date(now);
-    let end: Date | undefined;
+    const currentStart = new Date(now);
+    let currentEnd: Date | undefined;
+
+    const previousStart = new Date(now);
+    let previousEnd = new Date(now);
 
     switch (filter) {
       case 'Hoje':
-        start.setHours(0, 0, 0, 0);
+        currentStart.setHours(0, 0, 0, 0);
+        
+        previousStart.setDate(now.getDate() - 1);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(previousStart);
+        previousEnd.setHours(23, 59, 59, 999);
         break;
       case 'Ontem':
-        start.setDate(now.getDate() - 1);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setHours(23, 59, 59, 999);
+        currentStart.setDate(now.getDate() - 1);
+        currentStart.setHours(0, 0, 0, 0);
+        currentEnd = new Date(currentStart);
+        currentEnd.setHours(23, 59, 59, 999);
+
+        previousStart.setDate(now.getDate() - 2);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(previousStart);
+        previousEnd.setHours(23, 59, 59, 999);
         break;
       case '7 dias':
-        start.setDate(now.getDate() - 7);
-        start.setHours(0, 0, 0, 0);
+        currentStart.setDate(now.getDate() - 7);
+        currentStart.setHours(0, 0, 0, 0);
+
+        previousStart.setDate(now.getDate() - 14);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(currentStart);
+        previousEnd.setMilliseconds(-1);
         break;
       case 'Mês':
-        start.setDate(1);
-        start.setHours(0, 0, 0, 0);
+        currentStart.setDate(1);
+        currentStart.setHours(0, 0, 0, 0);
+
+        previousStart.setMonth(now.getMonth() - 1);
+        previousStart.setDate(1);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(currentStart);
+        previousEnd.setMilliseconds(-1);
         break;
       default:
-        start.setHours(0, 0, 0, 0);
+        currentStart.setHours(0, 0, 0, 0);
+        previousStart.setDate(now.getDate() - 1);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(previousStart);
+        previousEnd.setHours(23, 59, 59, 999);
     }
 
     return { 
-      start: start.toISOString(), 
-      end: end?.toISOString() 
+      current: { start: currentStart.toISOString(), end: currentEnd?.toISOString() },
+      previous: { start: previousStart.toISOString(), end: previousEnd.toISOString() }
     };
   },
 
@@ -169,7 +247,6 @@ export const DashboardService = {
     let repeatRevenue = 0;
 
     if (pedidosData) {
-      // Group by lead_id
       const leadOrders: Record<string, number> = {};
       const leadRevenue: Record<string, number> = {};
 
@@ -183,9 +260,6 @@ export const DashboardService = {
       for (const lead_id in leadOrders) {
         if (leadOrders[lead_id] > 1) {
           repeatCustomers++;
-          // Aprox. we consider everything after their first order as repeat revenue.
-          // Simplification: we'll just sum all their revenue to show "LTV Revenue" for those clients, 
-          // or ideally just calculate total - first order. We will do a generic calculation:
           repeatRevenue += leadRevenue[lead_id];
         }
       }
@@ -194,7 +268,7 @@ export const DashboardService = {
     return {
       repeatCustomers,
       repeatRevenue,
-      automatedRemindersSent: repeatCustomers * 2 // Mock statistic since we don't track n8n hooks in DB yet
+      automatedRemindersSent: repeatCustomers * 2
     };
   }
 };
