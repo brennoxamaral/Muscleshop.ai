@@ -3,13 +3,11 @@ import { Lead } from '../types/database';
 
 export const LeadsService = {
   async getLeads(): Promise<Lead[]> {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .gte('created_at', twentyFourHoursAgo)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(200);
 
     if (error) {
       console.error('Error fetching leads:', error);

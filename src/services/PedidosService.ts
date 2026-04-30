@@ -73,6 +73,14 @@ export const PedidosService = {
       }
     }
 
+    // Update lead status to 'fechado'
+    if (novoPedido && pedido.lead_id) {
+      await supabase
+        .from('leads')
+        .update({ Status: 'fechado' })
+        .eq('id', pedido.lead_id);
+    }
+
     return novoPedido;
   }
 };

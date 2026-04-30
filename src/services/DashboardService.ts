@@ -18,6 +18,18 @@ export interface LTVMetrics {
   repeatCustomers: number;
   repeatRevenue: number;
   automatedRemindersSent: number;
+  chartData: Array<{ time: string; value: number }>;
+}
+
+export interface RepurchaseCustomer {
+  pedido_id: string;
+  telefone: string;
+  nome_cliente: string;
+  data_pedido: string;
+  menor_prazo: number;
+  produtos: string;
+  dias_passados: number;
+  etapa_funil: string;
 }
 
 export const DashboardService = {
@@ -241,7 +253,7 @@ export const DashboardService = {
     const { data: pedidosData } = await supabase
       .from('pedidos')
       .select('lead_id, valor_total, status')
-      .eq('status', 'finalizado');
+      .in('status', ['finalizado', 'pago', 'entregue', 'concluido', 'concluído']);
 
     let repeatCustomers = 0;
     let repeatRevenue = 0;
@@ -253,6 +265,7 @@ export const DashboardService = {
       pedidosData.forEach(p => {
         if (p.lead_id) {
           leadOrders[p.lead_id] = (leadOrders[p.lead_id] || 0) + 1;
+          // Soma toda a receita do cliente
           leadRevenue[p.lead_id] = (leadRevenue[p.lead_id] || 0) + Number(p.valor_total || 0);
         }
       });
@@ -260,15 +273,86 @@ export const DashboardService = {
       for (const lead_id in leadOrders) {
         if (leadOrders[lead_id] > 1) {
           repeatCustomers++;
-          repeatRevenue += leadRevenue[lead_id];
+          // Se quisermos apenas a receita DA RECOMPRA (e não a total do cliente recorrente), a lógica exata já está na nossa nova View.
+          // Mas como kpi geral, podemos manter a soma aqui para simplificar ou usar a view para tudo.
+          // Aqui continuaremos com a receita total dos clientes que recompram para a métrica de "Faturamento Recompra" (ou poderíamos fazer uma query extra).
+          // Pela lógica anterior, repeatRevenue estava somando tudo.
         }
       }
+    }
+
+    // Buscando dados reais do gráfico de recompra
+    const { data: historicoRecompra } = await supabase
+      .from('vw_faturamento_recompra_mensal')
+      .select('mes, faturamento')
+      .order('mes', { ascending: true });
+
+    let chartData: Array<{ time: string; value: number }> = [];
+
+    // Formatar meses
+    const mesesPtBr = {
+      '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', 
+      '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago', 
+      '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+    };
+
+    if (historicoRecompra && historicoRecompra.length > 0) {
+      chartData = historicoRecompra.map((item: any) => {
+        const [ano, mes] = item.mes.split('-');
+        return {
+          time: `${mesesPtBr[mes as keyof typeof mesesPtBr]}/${ano.slice(2)}`,
+          value: Number(item.faturamento || 0)
+        };
+      });
+      
+      // Atualizando repeatRevenue para ser estritamente o faturamento gerado APENAS pelos pedidos de recompra
+      repeatRevenue = historicoRecompra.reduce((acc, curr) => acc + Number(curr.faturamento), 0);
+    } else {
+      // Fallback visual vazio para o gráfico quando não há dados reais ainda
+      const mesAtual = new Date().getMonth() + 1;
+      const chaveMes = mesAtual.toString().padStart(2, '0') as keyof typeof mesesPtBr;
+      chartData = [
+        { time: mesesPtBr[chaveMes], value: 0 }
+      ];
+      repeatRevenue = 0;
     }
 
     return {
       repeatCustomers,
       repeatRevenue,
-      automatedRemindersSent: repeatCustomers * 2
+      automatedRemindersSent: repeatCustomers * 2,
+      chartData
     };
+  },
+
+  async getRepurchaseCustomers(): Promise<RepurchaseCustomer[]> {
+    const { data } = await supabase
+      .from('vw_ltv_recompra_suplementos')
+      .select('*')
+      .order('dias_passados', { ascending: false });
+
+    if (!data) return [];
+
+    return data.map(customer => {
+      let etapa = 'Indefinida';
+      const { dias_passados, menor_prazo } = customer;
+
+      if (dias_passados <= 3) {
+        etapa = 'Pós-venda';
+      } else if (dias_passados > 3 && dias_passados <= 14) {
+        etapa = 'Follow-up de Satisfação';
+      } else if (dias_passados > 14 && dias_passados < (menor_prazo - 3)) {
+        etapa = 'Nutrição';
+      } else if (dias_passados >= (menor_prazo - 3) && dias_passados < menor_prazo) {
+        etapa = 'Janela de Recompra';
+      } else if (dias_passados >= menor_prazo) {
+        etapa = 'Atrasado / Perdido';
+      }
+
+      return {
+        ...customer,
+        etapa_funil: etapa
+      };
+    });
   }
 };
