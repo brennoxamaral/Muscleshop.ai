@@ -84,8 +84,9 @@ O coração analítico do sistema. Estética *Dark Mode* com detalhes verdes.
 * **Fallback para IA de Vendas:** Toda mensagem ativa disparada pela automação é injetada na tabela `memory` do Supabase. Assim, caso o cliente decida realizar um novo pedido mesmo nas fases iniciais (ex: responder no follow-up), a "BIA Muscle Shop" recebe o contexto e finaliza a nova venda de forma contínua e natural.
 * **Dados reais:** Métricas e funil de clientes calculados dinamicamente a partir das tabelas `pedidos` e view `vw_ltv_recompra_suplementos` no Supabase.
 
-### 4.7. Radar de Estoque (`/radar`)
-* **Demanda Reprimida:** Lista de clientes interessados em produtos sem estoque, exibidos em cards grid (1-3 colunas responsivo).
+### 4.7. Radar de Estoque (`/radar` e `/radar-mobile`)
+* **Demanda Reprimida:** Lista de clientes interessados em produtos sem estoque, exibidos em cards grid (1-3 colunas responsivo) na visão admin, ou lista em coluna única no mobile.
+* **Visão Mobile (`/radar-mobile`):** Rota independente sem layout padrão (sidebar) para acesso rápido via celular.
 * **Cards:** Produto desejado, nome do cliente, tempo desde o registro.
 * **Ação "Notificar Chegada":** Gera link de WhatsApp com mensagem personalizada e atualiza status para `notificado` no Supabase.
 * **Estado "Notificado":** Botão desabilitado com feedback visual após notificação.
@@ -219,6 +220,7 @@ Estética **High-Tech / Fitness Dark**.
 | `/ltv` | LTV | Admin (com Sidebar) | Admin/Gestor |
 | `/radar` | Radar | Admin (com Sidebar) | Admin/Atendente |
 | `/entregas` | Entregas | **Sem sidebar** | Motoboy (mobile) |
+| `/radar-mobile` | RadarMobile | **Sem sidebar** | Atendente/Gestor (mobile) |
 
 ---
 

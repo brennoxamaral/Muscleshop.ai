@@ -6,6 +6,7 @@ import { Pedidos } from './pages/Pedidos';
 import { Logistica } from './pages/Logistica';
 import { LTV } from './pages/LTV';
 import { Radar } from './pages/Radar';
+import { RadarMobile } from './pages/RadarMobile';
 import { Entregas } from './pages/Entregas';
 
 export default function App() {
@@ -20,8 +21,9 @@ export default function App() {
           <Route path="ltv" element={<LTV />} />
           <Route path="radar" element={<Radar />} />
         </Route>
-        {/* Rota separada para entregadores (mobile-first), sem o Layout padrão */}
+        {/* Rotas separadas mobile-first, sem o Layout padrão */}
         <Route path="/entregas" element={<Entregas />} />
+        <Route path="/radar-mobile" element={<RadarMobile />} />
       </Routes>
     </BrowserRouter>
   );
