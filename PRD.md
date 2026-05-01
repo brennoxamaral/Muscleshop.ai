@@ -74,8 +74,8 @@ O coração analítico do sistema. Estética *Dark Mode* com detalhes verdes.
 * **Estado vazio:** Mensagem "Todas as entregas já foram finalizadas" com ícone.
 
 ### 4.6. Dashboard de Retenção (LTV) (`/ltv`)
-* **KPIs de Retenção (3):** Faturamento Recompra (receita efetiva dos pedidos classificados como recompra), Clientes Retidos (leads com mais de 1 pedido finalizado), Automações Disparadas (estimativa baseada em clientes retidos × 2).
-* **Evolução do Faturamento de Recompra:** Gráfico de área (AreaChart) 100% funcional. Consulta a view `vw_faturamento_recompra_mensal` para exibir a curva mensal de receita gerada exclusivamente por recompras.
+* **KPIs de Retenção (3):** Faturamento Recompra (receita efetiva dos pedidos classificados como recompra), Clientes Retidos (leads com mais de 1 pedido finalizado), Automações Disparadas (dados calculados com base nas recompras, sem hardcodes fictícios).
+* **Evolução do Faturamento de Recompra:** Gráfico de área (AreaChart) 100% funcional. Consulta a view `vw_faturamento_recompra_mensal` e garante o preenchimento (padding) dos últimos 6 meses mesmo se não houver dados, garantindo que o gráfico exiba a curva histórica corretamente, sem usar dados fictícios.
 * **Base de Clientes (Funil de Recompra):** Tabela de dados listando clientes elegíveis à retenção (suplementos) com informações dinâmicas de funil: `Pós-venda`, `Follow-up de Satisfação`, `Nutrição`, `Janela de Recompra` e `Atrasado / Perdido`. Utiliza a view `vw_ltv_recompra_suplementos`.
 * **Automação de Engajamento:** Mecânica autônoma de LTV no n8n. O sistema agrupa suplementos do mesmo pedido e monitora o menor `prazo_recompra_dias` para disparar 3 comunicações:
     1. **Dia 1:** Pós-venda e dica de consumo.

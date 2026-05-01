@@ -32,7 +32,7 @@ export function LTV() {
       title: 'Faturamento Recompra', 
       value: metrics ? `R$ ${metrics.repeatRevenue.toFixed(2)}` : 'R$ 0,00', 
       icon: DollarSign, 
-      trend: '+24%', 
+      trend: '', 
       isPositive: true,
       description: 'Receita gerada a partir da 2ª compra'
     },
@@ -40,7 +40,7 @@ export function LTV() {
       title: 'Clientes Retidos', 
       value: metrics?.repeatCustomers.toString() || '0', 
       icon: RefreshCw, 
-      trend: '+12%', 
+      trend: '', 
       isPositive: true,
       description: 'Clientes que compraram mais de uma vez'
     },
@@ -93,11 +93,13 @@ export function LTV() {
                   <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
                     <kpi.icon className="w-5 h-5 text-accent" />
                   </div>
-                  <span className={cn(
-                    "text-sm font-medium px-2 py-1 rounded-full bg-accent/10 text-accent"
-                  )}>
-                    {kpi.trend}
-                  </span>
+                  {kpi.trend && (
+                    <span className={cn(
+                      "text-sm font-medium px-2 py-1 rounded-full bg-accent/10 text-accent"
+                    )}>
+                      {kpi.trend}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-gray-400 text-sm font-medium">{kpi.title}</h3>
                 <p className="text-3xl font-bold text-white mt-1">{kpi.value}</p>

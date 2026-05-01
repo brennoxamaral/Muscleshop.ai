@@ -265,7 +265,6 @@ export const DashboardService = {
       pedidosData.forEach(p => {
         if (p.lead_id) {
           leadOrders[p.lead_id] = (leadOrders[p.lead_id] || 0) + 1;
-          // Soma toda a receita do cliente
           leadRevenue[p.lead_id] = (leadRevenue[p.lead_id] || 0) + Number(p.valor_total || 0);
         }
       });
@@ -273,10 +272,6 @@ export const DashboardService = {
       for (const lead_id in leadOrders) {
         if (leadOrders[lead_id] > 1) {
           repeatCustomers++;
-          // Se quisermos apenas a receita DA RECOMPRA (e não a total do cliente recorrente), a lógica exata já está na nossa nova View.
-          // Mas como kpi geral, podemos manter a soma aqui para simplificar ou usar a view para tudo.
-          // Aqui continuaremos com a receita total dos clientes que recompram para a métrica de "Faturamento Recompra" (ou poderíamos fazer uma query extra).
-          // Pela lógica anterior, repeatRevenue estava somando tudo.
         }
       }
     }
@@ -296,31 +291,35 @@ export const DashboardService = {
       '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
     };
 
-    if (historicoRecompra && historicoRecompra.length > 0) {
-      chartData = historicoRecompra.map((item: any) => {
-        const [ano, mes] = item.mes.split('-');
-        return {
-          time: `${mesesPtBr[mes as keyof typeof mesesPtBr]}/${ano.slice(2)}`,
-          value: Number(item.faturamento || 0)
-        };
-      });
-      
-      // Atualizando repeatRevenue para ser estritamente o faturamento gerado APENAS pelos pedidos de recompra
-      repeatRevenue = historicoRecompra.reduce((acc, curr) => acc + Number(curr.faturamento), 0);
-    } else {
-      // Fallback visual vazio para o gráfico quando não há dados reais ainda
-      const mesAtual = new Date().getMonth() + 1;
-      const chaveMes = mesAtual.toString().padStart(2, '0') as keyof typeof mesesPtBr;
-      chartData = [
-        { time: mesesPtBr[chaveMes], value: 0 }
-      ];
-      repeatRevenue = 0;
+    const last6Months: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      last6Months.push(`${year}-${month}`);
     }
+
+    const recompraMap = new Map<string, number>();
+    if (historicoRecompra && historicoRecompra.length > 0) {
+      historicoRecompra.forEach((item: any) => {
+        recompraMap.set(item.mes, Number(item.faturamento || 0));
+      });
+      repeatRevenue = historicoRecompra.reduce((acc, curr) => acc + Number(curr.faturamento), 0);
+    }
+
+    chartData = last6Months.map(mesIso => {
+      const [ano, mes] = mesIso.split('-');
+      return {
+        time: `${mesesPtBr[mes as keyof typeof mesesPtBr]}/${ano.slice(2)}`,
+        value: recompraMap.get(mesIso) || 0
+      };
+    });
 
     return {
       repeatCustomers,
       repeatRevenue,
-      automatedRemindersSent: repeatCustomers * 2,
+      automatedRemindersSent: repeatCustomers > 0 ? repeatCustomers * 2 : 0,
       chartData
     };
   },
